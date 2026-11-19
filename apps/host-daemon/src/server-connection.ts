@@ -13,6 +13,7 @@ import {
   type HostDaemonSessionCloseReason,
   type HostDaemonSessionOpenResponse,
   type HostDaemonDaemonWsMessage,
+  type HostDaemonSessionRoute,
 } from "@bb/host-daemon-contract";
 import { z } from "zod";
 import {
@@ -32,6 +33,7 @@ import { isLikelySystemSuspensionDelay } from "@bb/process-utils";
 import { sliceUtf16Head } from "@bb/text-utils";
 import { normalizeCaughtError, runtimeErrorLogFields } from "./error-utils.js";
 import { ServerResponseError } from "./server-client.js";
+import { sameServerRoute } from "./server-routes.js";
 
 export type { CreateReconnectingWebSocket } from "./server-connection-support.js";
 
@@ -174,6 +176,8 @@ export class ServerConnection {
     string,
     SentRecoverableMessage
   >();
+
+  private reportedRoute: HostDaemonSessionRoute | null = null;
 
   constructor(private readonly options: ServerConnectionOptions) {
     this.createWebSocket =
@@ -384,6 +388,7 @@ export class ServerConnection {
 
   private async openSession(): Promise<HostDaemonSessionOpenResponse> {
     this.fatalConnectError = null;
+    const route = this.options.routes.active().route;
     try {
       const session = await this.options.serverClient.openSession({
         hostId: this.options.hostId,
@@ -398,6 +403,8 @@ export class ServerConnection {
           this.options.getUndeliveredEventThreadIds?.() ?? [],
         loadedEnvironments: this.options.getLoadedEnvironments?.() ?? [],
       });
+      this.reportedRoute = route;
+      this.options.routes.learn(session.serverRoutes);
       this.session = session;
       this.sequencer = new HostDaemonWsSequencer();
       this.sessionSocketOpened = false;
@@ -469,7 +476,7 @@ export class ServerConnection {
   private logFatalConnectError(error: ServerResponseError): void {
     const base = {
       hostId: this.options.hostId,
-      serverUrl: this.options.serverUrl,
+      serverUrl: this.options.routes.active().url,
       status: error.status,
       code: error.code,
       detail: error.bodyMessage,
@@ -490,6 +497,7 @@ export class ServerConnection {
   private async connectWebSocket(): Promise<HostDaemonSessionOpenResponse> {
     const websocket = this.createWebSocket(
       async () => {
+        await this.options.routes.select();
         const resumable = this.resumableSession();
         if (resumable !== null) {
           this.dialingResume = true;
@@ -508,12 +516,12 @@ export class ServerConnection {
         maxReconnectionDelay: DEFAULT_MAX_RECONNECTION_DELAY,
         reconnectionDelayGrowFactor: DEFAULT_RECONNECTION_DELAY_GROW_FACTOR,
         connectionTimeout: DEFAULT_CONNECTION_TIMEOUT_MS,
-        headers: {
+        headers: () => ({
           authorization: buildHostDaemonWebSocketAuthorizationHeader(
             this.options.hostKey,
           ),
-          ...this.options.serverHeaders,
-        },
+          ...this.options.routes.active().headers,
+        }),
         maxRetries: Number.POSITIVE_INFINITY,
         protocols: buildHostDaemonWebSocketProtocols(),
       },
@@ -575,6 +583,7 @@ export class ServerConnection {
             "Connected to server",
           );
           this.flushSocketPayloads(true);
+          this.reportRouteIfChanged();
           await this.options.onSessionOpened?.(session);
           this.flushPendingRecoverableMessages();
           if (!settled) {
@@ -655,7 +664,7 @@ export class ServerConnection {
           return;
         }
         this.options.logger.info(
-          { serverUrl: this.options.serverUrl },
+          { serverUrl: this.options.routes.active().url },
           "Waiting for server...",
         );
       };
@@ -699,6 +708,17 @@ export class ServerConnection {
       "Reconnected; resuming the server session",
     );
     this.flushSocketPayloads(true);
+    this.reportRouteIfChanged();
+  }
+
+  private reportRouteIfChanged(): void {
+    const route = this.options.routes.active().route;
+    if (sameServerRoute(route, this.reportedRoute)) {
+      return;
+    }
+    if (this.sendMessage({ type: "session.route", route })) {
+      this.reportedRoute = route;
+    }
   }
 
   private startResumeDeadline(session: HostDaemonSessionOpenResponse): void {
@@ -869,6 +889,11 @@ export class ServerConnection {
         message.data.idleProviderSessionTimeoutMinutes,
       );
       this.options.onAgentCpuPriority?.(message.data.agentCpuPriority);
+      return;
+    }
+
+    if (message.data.type === "server-routes.replace") {
+      this.options.routes.learn(message.data.serverRoutes);
       return;
     }
 
@@ -1105,7 +1130,7 @@ export class ServerConnection {
     sessionId: string,
     resumeFrom: number | null,
   ): string {
-    const serverUrl = new URL(this.options.serverUrl);
+    const serverUrl = new URL(this.options.routes.active().url);
     serverUrl.protocol = serverUrl.protocol === "https:" ? "wss:" : "ws:";
     serverUrl.pathname = "/internal/ws";
     serverUrl.searchParams.set("sessionId", sessionId);

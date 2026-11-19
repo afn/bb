@@ -20,6 +20,7 @@ import {
   dropPluginMarketplaceEnabledColumn,
   rewindMachineTeardownRecoveryColumns,
   dropThreadRunStateTables,
+  dropServerAccessRouteTables,
   dropThreadStatusChangedAtColumn,
   dropQueuedMessageEditHeldUntilColumn,
 } from "./helpers/rewind.js";
@@ -127,6 +128,7 @@ it.each([false, true])(
       dropQueuedMessageDeliveryColumns(db);
       dropThreadStatusChangedAtColumn(db);
       dropThreadRunStateTables(db);
+      dropServerAccessRouteTables(db);
       dropPluginFailureLabelColumns(db);
       rewindMachineTeardownRecoveryColumns(db);
       dropPluginMarketplaceEnabledColumn(db);

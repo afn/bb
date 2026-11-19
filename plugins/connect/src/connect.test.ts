@@ -2018,6 +2018,7 @@ describe("connect plugin", () => {
         },
         maxPermissionMode: "full",
         lastSeenAt: null,
+        route: null,
         lastRejectedProtocolVersion: null,
         createdAt: 1,
         updatedAt: 2,

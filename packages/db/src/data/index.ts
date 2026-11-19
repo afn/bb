@@ -9,6 +9,7 @@ export {
 export * from "./events.js";
 export * from "./experiments.js";
 export * from "./hosts.js";
+export * from "./host-server-access-grants.js";
 export * from "./machines.js";
 export * from "./maintenance.js";
 export * from "./pending-interactions.js";

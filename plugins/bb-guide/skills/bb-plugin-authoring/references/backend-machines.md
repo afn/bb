@@ -218,10 +218,27 @@ provides no retention or keep controls.
 
 ## Server access
 
-`bb.experimental_serverAccess.register` declares how a new machine reaches
-this server: `id`, `displayName`, `description`, `availability()`,
-`acquire({ key, hostId, signal })` returning a `ServerAccessGrant` or
-`{ status: "failed", message }`, and `release({ key, hostId, grantId })`.
+`bb.experimental_serverAccess.register` declares a route by which machines
+and apps reach this server: `id`, `displayName`, `description`, an optional
+`routeKind` (`"local-network" | "private-overlay" | "relay" | "custom"`,
+default `"custom"`), `availability()`, `acquire({ key, hostId, signal })`
+returning a `ServerAccessGrant` or `{ status: "failed", message }`, and
+`release({ key, hostId, grantId })`. The ids `direct` and `local-network`
+are reserved for core.
+
+Every provider the user leaves turned on is a route. Core ranks routes by
+`routeKind` (local network, private overlay such as a tailnet, relay, custom)
+until the user orders them in Settings → Machine access or with
+`bb server access order`. A new machine is installed with the first working
+`relay` or `custom` route, falling back to `local-network` and
+`private-overlay` only when nothing else is turned on; each connected machine then acquires a grant from every turned-on,
+available provider when its session opens, and core sends the daemon all of
+them with their own headers. Only routes that are turned on and available are
+advertised, and their hostnames pass the server's host and origin checks.
+Core stores the admitted addresses so they work from the first request after a
+restart; an address survives a failed or timed-out `availability()` and is
+dropped on a definite `unavailable`/`setup-required` answer or when the plugin
+is disabled or removed.
 
 Acquire is idempotent by key and returns
 `{ id, serverUrl, headers?: Record<string, string> }`; the grant serves

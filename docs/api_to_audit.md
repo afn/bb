@@ -4066,12 +4066,25 @@ Registers a server access provider: `availability` (optionally with a public
 `serverUrl`), `acquire({ key, hostId, signal })` returning a grant
 `{ id, serverUrl, headers? }` or `{ status: "failed", message }`, and
 `release({ key, hostId, grantId })`. Machines attach the grant's headers to
-enrollment and runtime traffic.
+enrollment and runtime traffic. The optional `routeKind`
+(`"local-network" | "private-overlay" | "relay" | "custom"`, default
+`"custom"`) sets the provider's default rank among the server's routes; every
+turned-on provider is a route, each host holds a grant per provider, and the
+daemon session-open response and system configuration advertise the routes in
+the user's order (advertisement is behind the `serverRoutes` experiment; while
+it is off, routes are empty). Core's own Local network and Manual providers use
+the same ordering, enablement and advertisement path; Connect declares `relay`. New
+machines install on the first working `relay` or `custom` route; `local-network`
+and `private-overlay` serve as the install route only when nothing else is on.
+Admitted route addresses persist in `app_settings_values` (`serverAccessOrigins`)
+so the Host/Origin guards accept them from the first request after a restart.
 
 Docs: `backend-machines.md`.
 
 Before stabilization, prove retry-safe acquire/release across process death,
-credential privacy and revocation, explicit and automatic defaults, expired
+credential privacy and revocation, route ordering and per-host grants with a
+second independent provider (such as a Tailscale provider), explicit and automatic
+defaults, expired
 codes, removal while a provider is unavailable, and both enrolment and runtime
 traffic with independent direct and Connect consumers. Availability does not
 prove reachability from a remote machine.

@@ -1,3 +1,8 @@
+import { getOrCreateServerId } from "@bb/db";
+import {
+  refreshServerAccessOrigins,
+  restoreServerAccessOrigins,
+} from "./services/machines/server-access.js";
 import { createPluginUpdateJobs } from "./services/plugins/plugin-update-jobs.js";
 import { registerPluginUpdateJobRoutes } from "./routes/plugin-update-jobs.js";
 import {
@@ -546,6 +551,7 @@ export function createApp(
     });
     return context.json({
       ok: true,
+      serverId: getOrCreateServerId(deps.db),
       ...(deps.config.launchId === undefined
         ? {}
         : { launchId: deps.config.launchId }),
@@ -785,7 +791,10 @@ export function createApp(
       deps.providerRegistry.forgetAllInstalled();
       requestHostDerivedStateRefreshForPluginChange(deps);
     },
-    onPluginsChanged: () => requestHostDerivedStateRefreshForPluginChange(deps),
+    onPluginsChanged: () => {
+      requestHostDerivedStateRefreshForPluginChange(deps);
+      refreshServerAccessOrigins(deps);
+    },
     onPluginUnregistered: (pluginId) => {
       requestQueuedMessageDispatch(deps, {
         kind: "plugin-unregistered",
@@ -828,6 +837,7 @@ export function createApp(
     ),
   );
   setServerAccessBridge(pluginService.serverAccessProviders);
+  restoreServerAccessOrigins(deps);
   setServerAccessRecheckHandler(() => {
     deps.hub.notifySystem(["config-changed"]);
   });

@@ -8,6 +8,8 @@ import {
   getAppSettings,
   getAutoAppUpdate,
   getDisabledPluginProviderCatalog,
+  getOrCreateServerId,
+  getServerAccessOrigins,
   getDisabledProviderIds,
   getPluginRecommendationId,
   getPluginSafeMode,
@@ -22,6 +24,7 @@ import {
   setDisabledProviderIds,
   setPluginRecommendationId,
   setPluginSafeMode,
+  setServerAccessOrigins,
   setSkippedAppUpdate,
 } from "../../src/data/app-settings.js";
 import {
@@ -360,6 +363,30 @@ const SETTINGS_CASES: readonly Case[] = [
     run: (db) => setAutoAppUpdate(db, false),
   },
   {
+    name: `${APP_SETTINGS}#getOrCreateServerId`,
+    run: (db) => getOrCreateServerId(db),
+  },
+  {
+    name: `${APP_SETTINGS}#setServerAccessOrigins`,
+    run: (db) =>
+      setServerAccessOrigins(db, [
+        {
+          providerId: "connect",
+          pluginId: "connect",
+          origin: "https://owner.getbb.app",
+        },
+        {
+          providerId: "local-network",
+          pluginId: null,
+          origin: "http://192.168.1.5:38886",
+        },
+      ]),
+  },
+  {
+    name: `${APP_SETTINGS}#getServerAccessOrigins`,
+    run: (db) => getServerAccessOrigins(db),
+  },
+  {
     name: `${APP_SETTINGS}#getAiServiceSelections`,
     run: (db) => getAiServiceSelections(db),
   },
@@ -442,6 +469,7 @@ const SETTINGS_CASES: readonly Case[] = [
         performanceDiagnostics: true,
         pluginUpdates: true,
         resumeDaemonSessions: true,
+        serverRoutes: true,
         skipFocusedThreadNotifications: true,
         threadContextCard: true,
         walCheckpointWorker: true,

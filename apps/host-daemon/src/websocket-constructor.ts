@@ -14,11 +14,14 @@ export function webSocketAgent(address: string | URL): http.Agent {
 }
 
 export function createNodeWebSocketConstructor(
-  headers: Record<string, string> | undefined,
+  headers: (() => Record<string, string>) | undefined,
 ): NodeWebSocketConstructor {
   return class EnvProxyWebSocket extends NodeWebSocket {
     constructor(address: string | URL, protocols?: string | string[]) {
-      super(address, protocols, { agent: webSocketAgent(address), headers });
+      super(address, protocols, {
+        agent: webSocketAgent(address),
+        headers: headers?.(),
+      });
     }
   };
 }
