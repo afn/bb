@@ -18,7 +18,15 @@ import {
   threadStorageOrphanSweep,
   THREAD_STORAGE_ORPHAN_SWEEP_CADENCE_MS,
 } from "../threads/thread-storage-orphans.js";
-import { and, eq, isNull, isNotNull, inArray, notExists } from "drizzle-orm";
+import {
+  and,
+  eq,
+  isNull,
+  isNotNull,
+  inArray,
+  notExists,
+  or,
+} from "drizzle-orm";
 import {
   machineLifecycleSweep,
   machineRemovalRequestSweep,
@@ -390,7 +398,12 @@ function environmentProvisioningSweep(
       deps.db
         .select({ id: environments.id })
         .from(environments)
-        .where(inArray(environments.status, ["creating", "provisioning"]))
+        .where(
+          or(
+            inArray(environments.status, ["creating", "provisioning"]),
+            eq(environments.createPending, true),
+          ),
+        )
         .all(),
     key: (environment) => environment.id,
     process: async (environment) => {
