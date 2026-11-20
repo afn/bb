@@ -4,7 +4,6 @@ import {
   type ExperimentalThreadContextSegmentProps,
 } from "@get-bb/plugin-sdk";
 import {
-  CORE_THREAD_CONTEXT_OWNER,
   ThreadContextSegmentMount,
   threadContextSegmentKey,
   threadContextSegmentMountKey,
@@ -13,10 +12,8 @@ import {
   type ThreadContextSegmentEntry,
   type ThreadContextSegmentPart,
 } from "@/components/plugin/PluginThreadContextSegments";
-import {
-  collectPluginAppRegistrations,
-  definePluginApp,
-} from "@/lib/plugin-app-definition";
+import { definePluginApp } from "@/lib/plugin-app-definition";
+import { collectCoreContributionSlots } from "@/lib/core-contributions";
 import {
   machineRemovalDescriptions,
   machineRemovalLabels,
@@ -35,10 +32,11 @@ import {
   type RefObject,
 } from "react";
 import { NavLink } from "react-router-dom";
-import type {
-  EnvironmentStatus,
-  PendingInteraction,
-  ThreadRuntimeDisplayStatus,
+import {
+  CORE_PLUGIN_ID,
+  type EnvironmentStatus,
+  type PendingInteraction,
+  type ThreadRuntimeDisplayStatus,
 } from "@bb/domain";
 import {
   PromptStackCard,
@@ -56,8 +54,12 @@ import {
 import { formatPendingInteractionSummary } from "@bb/core-ui";
 import { InlinePendingInteractionContext } from "@/components/thread/pending-interactions/PendingInteractionShell";
 import { ThreadPendingInteractionBanners } from "@/components/thread/pending-interactions/ThreadPendingInteractionBanner";
+import { CONTEXT_CARD_SEGMENT_CLASS } from "@bb/shared-ui/chrome-style-tokens";
 import { cn } from "@bb/shared-ui/lib/utils";
-import { useThreadContextKind } from "@/components/plugin/PluginThreadContextCard";
+import {
+  experimental_useThreadContextKind,
+  experimental_useThreadTitleDisplayText,
+} from "@get-bb/plugin-sdk/app";
 import { Icon, type IconName } from "@bb/shared-ui/icon";
 import {
   AnimatedBody,
@@ -205,7 +207,7 @@ const PARENT_SECTION_ICON: Record<
 function useParentSectionAriaLabel(
   section: ThreadPromptParentThreadSection,
 ): string {
-  const parentThreadTitle = useThreadTitleDisplayText(
+  const parentThreadTitle = experimental_useThreadTitleDisplayText(
     section.parentThreadTitle,
   );
   return `${PARENT_SECTION_COPY[section.relationship].ariaPrefix} ${parentThreadTitle}`;
@@ -224,7 +226,7 @@ function ParentThreadInlineSegment({
     <div
       className={cn(
         "flex min-w-0 items-center gap-1.5 text-xs",
-        PROMPT_STACK_INLAY_SEGMENT_CLASS,
+        CONTEXT_CARD_SEGMENT_CLASS,
       )}
       title={ariaLabel}
     >
@@ -956,7 +958,7 @@ export function ThreadChildThreadsBanner({
 const SEGMENT_GROUPS = experimental_THREAD_CONTEXT_SEGMENT_GROUPS;
 
 const coreThreadContextSegments: readonly CoreThreadContextSegment[] =
-  collectPluginAppRegistrations(
+  collectCoreContributionSlots(
     definePluginApp((app) => {
       app.slots.experimental_threadContextSegment({
         id: "parent-thread",
@@ -967,15 +969,13 @@ const coreThreadContextSegments: readonly CoreThreadContextSegment[] =
         details: ParentThreadDetails,
         useVisible: () => {
           const { parentThread } = useCoreThreadContext();
-          const kind = useThreadContextKind();
+          const kind = experimental_useThreadContextKind();
           return parentThread !== null && kind === "banner";
         },
       });
     }),
-  ).threadContextSegments.map((slot) => ({
-    ...slot,
-    pluginId: CORE_THREAD_CONTEXT_OWNER,
-  }));
+    "threadContextSegments",
+  );
 
 function coreSlot(id: string): CoreThreadContextSegment {
   const slot = coreThreadContextSegments.find(
@@ -991,10 +991,10 @@ const PARENT_THREAD_ENTRY: ThreadContextSegmentEntry = {
   slot: PARENT_THREAD_SLOT,
 };
 const PARENT_THREAD_KEY = threadContextSegmentKey(PARENT_THREAD_SLOT);
-const STATUS_KEY = `${CORE_THREAD_CONTEXT_OWNER}/status`;
+const STATUS_KEY = `${CORE_PLUGIN_ID}/status`;
 const READ_ONLY_SEGMENTS = [
-  { key: PARENT_THREAD_KEY, pluginId: CORE_THREAD_CONTEXT_OWNER },
-  { key: STATUS_KEY, pluginId: CORE_THREAD_CONTEXT_OWNER },
+  { key: PARENT_THREAD_KEY, pluginId: CORE_PLUGIN_ID },
+  { key: STATUS_KEY, pluginId: CORE_PLUGIN_ID },
 ];
 
 interface ReadOnlyContextBannerProps {
