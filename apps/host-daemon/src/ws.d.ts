@@ -27,7 +27,10 @@ declare module "ws" {
     readonly readyState: number;
     readonly bufferedAmount: number;
     readonly protocol: string;
-    send(data: string | Buffer | Uint8Array): void;
+    send(
+      data: string | Buffer | Uint8Array,
+      callback?: (error?: Error) => void,
+    ): void;
     close(code?: number, reason?: string): void;
     terminate(): void;
     on(event: "open", listener: () => void): this;
