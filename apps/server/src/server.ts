@@ -71,6 +71,7 @@ import {
 } from "./services/plugins/plugin-server-access-registry.js";
 import { setPluginMachineProviderBridge } from "./services/plugins/plugin-machine-provider-registry.js";
 import { invalidateEnvironmentProviderMachineAvailability } from "./services/environments/provider-machine-availability.js";
+import { releasePluginEnvironmentHolds } from "./services/environments/environment-engine.js";
 import { requestHostDerivedStateRefreshForPluginChange } from "./services/hosts/host-derived-state.js";
 import { requestQueuedMessageDispatch } from "./services/threads/queued-message-dispatch.js";
 import { registerInternalEventRoutes } from "./internal/events.js";
@@ -787,6 +788,7 @@ export function createApp(
     },
     onPluginsChanged: () => requestHostDerivedStateRefreshForPluginChange(deps),
     onPluginUnregistered: (pluginId) => {
+      releasePluginEnvironmentHolds(deps, pluginId);
       requestQueuedMessageDispatch(deps, {
         kind: "plugin-unregistered",
         pluginId,
